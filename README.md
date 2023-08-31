@@ -1,4 +1,4 @@
-# drone-camera-
+# drone-camera-forproject
 
 # python3.9.12 instalation
 
@@ -8,7 +8,7 @@ sudo apt upgrade
 sudo apt install -y build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev libbz2-dev
 wget https://www.python.org/ftp/python/3.9.12/Python-3.9.12.tgz
 
-# take all this line together 
+# python3.9.12 installation 
 tar -xf Python-3.9.12.tgz
 cd Python-3.9.12
 ./configure --enable-optimizations
@@ -26,7 +26,6 @@ alternativ - check if the instalation finish - python --version /python3 --versi
 
 cmake --version  #check you defoult camke version
 
-
 sudo apt-get install libcurl4-openssl-dev
 sudo apt install wget
 mkdir ~/cmake-source
@@ -34,7 +33,7 @@ cd ~/cmake-source
 curl -LO https://cmake.org/files/v3.27/cmake-3.27.4.tar.gz
 tar -xzvf cmake-3.27.4.tar.gz
 
-#build and inastall cmake 
+# build and inastall cmake 
 
 cd cmake-3.27.4
 ./bootstrap
@@ -46,7 +45,7 @@ sudo make install
 cmake --version
 
 
-
+# intelrealsense
 #now go to intelreal sense git downlad and take some source file to install the sdk
 #from here:  https://github.com/IntelRealSense/librealsense/releases/
 
@@ -60,15 +59,16 @@ sudo apt-get install libxcursor-dev
 #run this line to use the cmake
 cmake ../ -DFORCE_RSUSB_BACKEND=ON -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/local/bin/python3.9 -DCMAKE_BUILD_TYPE=release -DBUILD_EXAMPLES=true -DBUILD_GRAPHICAL_EXAMPLES=true -DBUILD_WITH_CUDA:bool=false
 
-#installation
+# installation
 make -j2
 sudo make install
 
+# bashrc
 vim ~/.bashrc
-# use i to insert data
+#use i to insert data
 #to exit use esc and then :wq
 
-# put this - mabey need to fix it - lets see what at my jetson but 
+#put this at bashrc - mabey need to fix it - lets see what at my jetson but 
 
 export PATH=$PATH:/usr/local/bin
 export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.9/site-packages
@@ -79,10 +79,19 @@ export PYTHONPATH=$PYTHONPATH:/home/drone/naorp/cam/librealsense-2.48.0/build/wr
 source ~/.bashrc
 
 
-
-
-
+# mavlink instalation 
 #at this point we can install 
+
+
+
+
+
+
+
+#to get pramition - need to fix it ask tal
+
+sudo chmod a+rw /dev/ttyTHS1
+Sudo mavproxy.py –master=/dev/ttyTHS1
 
 
 
