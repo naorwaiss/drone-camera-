@@ -3,8 +3,8 @@
 # python3.9.12 instalation
 
 
-sudo apt update
-sudo apt upgrade
+sudo apt update;
+sudo apt upgrade;
 sudo apt install -y build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev libbz2-dev
 wget https://www.python.org/ftp/python/3.9.12/Python-3.9.12.tgz
 
