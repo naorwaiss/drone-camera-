@@ -1,6 +1,6 @@
 # drone-camera-forproject
 
-# python3.9.12 instalation
+# python3.9.12 installation
 
 
 sudo apt update
