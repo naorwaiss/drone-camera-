@@ -15,7 +15,7 @@ cd Python-3.9.12
 make -j4  # You can change the number after -j to match the number of CPU cores for faster compilation.
 sudo make altinstall
 
-# after the instalation finish - make the python as defount (python and python3)
+# after the installation finish - make the python as defount (python and python3)
 sudo update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.9 1
 sudo update-alternatives --install /usr/bin/python python /usr/local/bin/python3.9 1
 
