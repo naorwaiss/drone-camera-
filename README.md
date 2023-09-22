@@ -114,6 +114,23 @@ Sudo mavproxy.py –master=/dev/ttyTHS1
 pip install pyzbar
 pip install opencv-python-headless
 
+-----------------------------------------------------
+
+# run simulation 
+run drone simulation with gazibo
+cd PX4-Autopilot/Tools/setup
+./ubuntu.sh
+
+
+cd ~/PX4-Autopilot
+make px4_sitl gazebo #this make regular dji drone 
+-------------------------------------------------------
+sudo apt-get install gz-garden 
+make px4_sitl gz_x500 #make 500 dji simulation
+
+------------------------------------------------------
+#make jsim simulator 
+make px4_sitl_default jmavsim
 
 
 
