@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+# this script need the drone to be at guided and take off to 2 m and then land after 10 sec 
 import asyncio
 from mavsdk import System
 

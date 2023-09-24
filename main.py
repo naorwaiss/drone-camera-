@@ -1,3 +1,4 @@
+# arm and takeoff with dronekit
 from dronekit import connect, VehicleMode
 import time
 
