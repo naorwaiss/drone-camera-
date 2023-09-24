@@ -1,38 +1,48 @@
 import asyncio
 from mavsdk import System
-from mavsdk.offboard import PositionNedYaw
-from convert_coordinates import convert_gps_to_cartesian
+from mavsdk.mission import MissionItem
+from mavsdk.offboard import PositionNedYaw, OffboardError
 import time
+
+# Function to convert GPS coordinates to Cartesian coordinates
+import math
+
+
+def convert_gps_to_cartesian(latitude_deg, longitude_deg, altitude_m, home_latitude_deg, home_longitude_deg,
+                             home_altitude_m):
+    # Earth radius in meters
+    earth_radius = 6371000.0
+
+    # Convert latitude and longitude to radians
+    lat_rad = math.radians(latitude_deg)
+    lon_rad = math.radians(longitude_deg)
+    home_lat_rad = math.radians(home_latitude_deg)
+    home_lon_rad = math.radians(home_longitude_deg)
+
+    # Calculate Cartesian coordinates relative to the home location
+    x = earth_radius * (lon_rad - home_lon_rad) * math.cos(home_lat_rad)
+    y = earth_radius * (lat_rad - home_lat_rad)
+    z = altitude_m - home_altitude_m
+
+    return x, y, z
 
 
 async def arm_and_takeoff(drone, altitude):
     await drone.action.set_takeoff_altitude(altitude)
-    await drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, -altitude, 0.0))
-    await drone.offboard.start()
-    await asyncio.sleep(1)
+    await move(drone, 0.0, 0.0, -altitude)
     await drone.action.arm()
     await asyncio.sleep(1)
-    await drone.action.takeoff()
+    await drone.action.setup_drone()
     print("Drone is armed and taking off...")
 
 
-async def move_forward(drone, distance):
+async def move(drone, target_north_m, target_east_m, target_down_m):
     try:
-        current_position = await drone.telemetry.position()
-        x, y, z = convert_gps_to_cartesian(
-            current_position.latitude_deg,
-            current_position.longitude_deg,
-            current_position.absolute_altitude_m,
-            home_latitude_deg,
-            home_longitude_deg,
-            home_altitude_m
-        )
-
-        target_x = x + distance
-        await drone.offboard.set_position_ned(PositionNedYaw(0.0, distance, -z, 0.0))
-        print(f"Moving forward by {distance} meters...")
+        new_position = PositionNedYaw(target_north_m, target_east_m, target_down_m, 0.0)
+        await drone.offboard.set_position_ned(new_position)
+        await asyncio.sleep(1)
     except Exception as e:
-        print(f"Error moving forward: {e}")
+        print(f"Failed moving {e}")
 
 
 async def land(drone):
@@ -44,24 +54,16 @@ async def land(drone):
 
 
 async def telemetry_loop(drone):
-    while True:
+    async for current_position in drone.telemetry.position_velocity_ned():
         try:
-            current_position = await drone.telemetry.position()
-            x, y, z = convert_gps_to_cartesian(
-                current_position.latitude_deg,
-                current_position.longitude_deg,
-                current_position.absolute_altitude_m,
-                home_latitude_deg,
-                home_longitude_deg,
-                home_altitude_m
-            )
-            print(f"Current Coordinates: X={x}, Y={y}, Z={z}")
-            await asyncio.sleep(1)  # Sleep for 1 second
+            position = current_position.position
+            yield position.north_m, position.east_m, position.down_m
         except Exception as e:
             print(f"Error in telemetry loop: {e}")
 
 
 async def main():
+    # Your main control logic here
     altitude = float(input("Enter desired altitude (in meters): "))
 
     drone = System()
@@ -69,30 +71,39 @@ async def main():
     try:
         await drone.connect(system_address="udp://:14540")
 
-        await arm_and_takeoff(drone, altitude)
+        await asyncio.sleep(10)  # Allow time for takeoff
 
-        asyncio.create_task(telemetry_loop(drone))  # Start telemetry loop concurrently
+        print(">> Waiting for GPS")
+        async for state in drone.telemetry.health():
+            if state.is_global_position_ok:
+                break
+        print(">> Found GPS")
 
-        await asyncio.sleep(5)  # Allow time for takeoff
-
-        distance = float(input("Enter distance to move forward (in meters): "))
-
-        await move_forward(drone, distance)
-        await asyncio.sleep(5)  # Allow time for movement
-
-        land_confirmation = input("Enter 'land' to initiate landing: ")
-        if land_confirmation.lower() == 'land':
-            await land(drone)
-        else:
-            print("Landing aborted.")
+        async for north_m, east_m, down_m in telemetry_loop(drone):
+            distance_calculator = {
+                "north": lambda target_distance: (
+                    north_m + target_distance, east_m, down_m),
+                "east": lambda target_distance: (
+                    north_m, east_m + target_distance, down_m),
+                "up": lambda target_distance: (
+                    north_m, east_m, down_m + target_distance),
+            }
+            command = input(f"Enter direction to move {list(distance_calculator.keys())} or 'land' to land: ")
+            if command == "land":
+                await land(drone)
+                await asyncio.sleep(5)  # Allow time for movement
+                break
+            else:
+                distance = float(input("Enter distance to move (in meters): "))
+                target_north_m, target_east_m, target_down_m = distance_calculator[command](
+                    distance)
+                print(
+                    f"Moving from ({north_m}, {east_m}, {down_m}) -> ({target_north_m}, {target_east_m}, {target_down_m})")
+                await move(drone, target_north_m, target_east_m, target_down_m)
+                await asyncio.sleep(5)  # Allow time for movement
     except Exception as e:
         print(f"Error: {e}")
 
 
 if __name__ == "__main__":
-    # Replace these values with the actual home location of your drone
-    home_latitude_deg = 0.0
-    home_longitude_deg = 0.0
-    home_altitude_m = 0.0
-
     asyncio.run(main())
