@@ -126,7 +126,7 @@ cd ~/PX4-Autopilot
 make px4_sitl gazebo #this make regular dji drone 
 -------------------------------------------------------
 sudo apt-get install gz-garden 
-make px4_sitl gz_x500 #make 500 dji simulation
+s
 
 ------------------------------------------------------
 #make jsim simulator 
