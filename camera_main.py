@@ -18,6 +18,14 @@ def main():
     # Start the pipeline
     pipeline.start(config)
 
+    # Define the codec and create a VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')  # Change the codec to 'MJPG'
+    output_file = '/home/drone/Desktop/output.avi'
+    fps = 30  # Frames per second
+    frame_size = (640, 480)  # Match the frame size to your input stream
+
+    out = cv2.VideoWriter(output_file, fourcc, fps, frame_size)
+
     try:
         while True:
             # Wait for a coherent pair of frames: depth and color
@@ -104,6 +112,8 @@ def main():
 
             # Display the color image with the largest obstacle and its distance
             cv2.imshow("Color Frame with Largest Obstacle", color_image)
+            # Write the frame to the output video
+            out.write(color_image)
 
             key = cv2.waitKey(1)
             if key == 27:  # Press 'Esc' to exit
@@ -115,6 +125,7 @@ def main():
     finally:
         # Stop the pipeline and close OpenCV window
         pipeline.stop()
+        out.release()
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
