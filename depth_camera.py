@@ -2,6 +2,7 @@ import os
 import pyrealsense2.pyrealsense2 as rs
 import numpy as np
 import cv2
+import math
 
 # Set an environment variable to disable GUI
 os.environ["DISPLAY"] = ":0.0"
@@ -17,6 +18,22 @@ def main():
 
     # Start the pipeline
     pipeline.start(config)
+
+    # Define the codec and create a VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')  # Change the codec to 'MJPG'
+    output_file = '/home/drone/Desktop/output.avi'
+    fps = 30  # Frames per second
+    frame_size = (640, 480)  # Match the frame size to your input stream
+
+    out = cv2.VideoWriter(output_file, fourcc, fps, frame_size)
+
+    # Calculate the center of the camera's image
+    camera_center_x = frame_size[0] // 2
+    camera_center_y = frame_size[1] // 2
+
+    # Camera parameters (based on your provided FOV values)
+    fov_x_degrees_rgb = 70.0  # Horizontal field of view for RGB sensor in degrees
+    fov_y_degrees_rgb = 43.0  # Vertical field of view for RGB sensor in degrees
 
     try:
         while True:
@@ -56,6 +73,11 @@ def main():
             # Combine both masks to detect strong red colors
             mask = cv2.bitwise_or(mask1, mask2)
 
+            # Apply morphological operations to the mask
+            kernel = np.ones((5, 5), np.uint8)
+            mask = cv2.erode(mask, kernel, iterations=1)
+            mask = cv2.dilate(mask, kernel, iterations=2)
+
             # Find contours in the mask
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -73,19 +95,40 @@ def main():
                     largest_obstacle = contour
 
             if largest_obstacle is not None:
-                # Draw a bounding box around the largest obstacle
+                # Calculate the center of the largest obstacle
                 x, y, w, h = cv2.boundingRect(largest_obstacle)
+
+                # Draw a bounding box around the largest obstacle (green color)
                 cv2.rectangle(color_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
                 # Calculate the center of the largest obstacle
-                center_x = x + w // 2
-                center_y = y + h // 2
+                contour_center_x = x + w // 2
+                contour_center_y = y + h // 2
 
-                # Get the depth value at the center of the obstacle
-                depth_value = depth_frame.get_distance(center_x, center_y)
+                # Initialize right and up vectors
+                right_rgb = 1  # Default value
+                up_rgb = 1  # Default value
 
-                # Display the distance on the image
-                distance_text = f"Depth: {depth_value:.2f} meters"
+                # Get the depth value at the center of the obstacle (in millimeters)
+                depth_value = depth_frame.get_distance(contour_center_x, contour_center_y) * 1000
+
+                if depth_value > 0:  # Check if valid depth value
+                    # Calculate the right and up vectors for RGB sensor (in meters) based on the pixel coordinates
+                    # Use the depth value in millimeters for accurate calculations
+                    vector_x_rgb = contour_center_x - camera_center_x
+                    vector_y_rgb = contour_center_y - camera_center_y
+                    right_rgb = vector_x_rgb * math.tan(math.radians(fov_x_degrees_rgb / 2)) * (depth_value / frame_size[0])
+                    up_rgb = vector_y_rgb * math.tan(math.radians(fov_y_degrees_rgb / 2)) * (depth_value / frame_size[1])
+
+                # Display the vector and depth information on the image
+                cv2.arrowedLine(
+                    color_image,
+                    (camera_center_x, camera_center_y),
+                    (contour_center_x, contour_center_y),
+                    (0, 0, 255), 2  # Red color for the vector
+                )
+
+                distance_text = f"Depth: {depth_value:.2f} mm\nRight (RGB): {right_rgb:.2f} meters\nUp (RGB): {up_rgb:.2f} meters"
                 cv2.putText(
                     color_image,
                     distance_text,
@@ -97,8 +140,10 @@ def main():
                     cv2.LINE_AA,
                 )
 
-            # Display the color image with the largest obstacle and its distance
+            # Display the color image with the largest obstacle, its distance, and the vector
             cv2.imshow("Color Frame with Largest Obstacle", color_image)
+            # Write the frame to the output video
+            out.write(color_image)
 
             key = cv2.waitKey(1)
             if key == 27:  # Press 'Esc' to exit
@@ -110,6 +155,7 @@ def main():
     finally:
         # Stop the pipeline and close OpenCV window
         pipeline.stop()
+        out.release()
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
