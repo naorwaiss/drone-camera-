@@ -6,6 +6,7 @@ import cv2
 # Set an environment variable to disable GUI
 os.environ["DISPLAY"] = ":0.0"
 
+
 def main():
     # Create a context
     pipeline = rs.pipeline()
@@ -127,6 +128,7 @@ def main():
         pipeline.stop()
         out.release()
         cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     main()
