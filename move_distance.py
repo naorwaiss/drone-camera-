@@ -1,5 +1,6 @@
-import asyncio
+# this simulation is only move the drone and gave him command this code also reset the position of the drone to new orgin)
 
+import asyncio
 from mavsdk import System
 from mavsdk.offboard import (OffboardError, PositionNedYaw)
 
@@ -79,7 +80,8 @@ async def move_loop(drone: System):
 
 async def main():
     drone = System()
-    await drone.connect(system_address="udp://:14540")
+    # await drone.connect(system_address="udp://:14540")
+    await drone.connect(system_address="serial:///dev/ttyTHS1")
     await setup_drone(drone)
 
     height = float(input(

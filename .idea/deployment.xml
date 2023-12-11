@@ -6,14 +6,7 @@
       <paths name="drone@172.18.111.213:22 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/tmp/pycharm_project_691" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="navkit@10.100.102.52:22 password (2)">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/tmp/pycharm_project_499" local="$PROJECT_DIR$" />
+            <mapping deploy="/tmp/pycharm_project_651" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

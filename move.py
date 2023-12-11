@@ -1,23 +1,11 @@
-
-# this is a test from the mavsdk python
 import asyncio
-
 from mavsdk import System
 from mavsdk.offboard import (OffboardError, PositionNedYaw)
 
+MOVE_ACCURACY = 0.1
 
-async def run():
-    """ Does Offboard control using position NED coordinates. """
 
-    drone = System()
-    await drone.connect(system_address="udp://:14540")
-
-    print("Waiting for drone to connect...")
-    async for state in drone.core.connection_state():
-        if state.is_connected:
-            print(f"-- Connected to drone!")
-            break
-
+async def setup_drone(drone: System):
     print("Waiting for drone to have a global position estimate...")
     async for health in drone.telemetry.health():
         if health.is_global_position_ok and health.is_home_position_ok:
@@ -29,7 +17,6 @@ async def run():
 
     print("-- Setting initial setpoint")
     await drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, 0.0))
-
     print("-- Starting offboard")
     try:
         await drone.offboard.start()
@@ -38,40 +25,78 @@ async def run():
                 with error code: {error._result.result}")
         print("-- Disarming")
         await drone.action.disarm()
-        return
+        raise
 
-    print("-- Go 0m North, 0m East, -5m Down \
-            within local coordinate system")
-    await drone.offboard.set_position_ned(
-        PositionNedYaw(0.0, 0.0, -5.0, 0.0))
-    await asyncio.sleep(10)
 
-    print("-- Go 5m North, 0m East, -5m Down \
-            within local coordinate system, turn to face East")
-    await drone.offboard.set_position_ned(
-        PositionNedYaw(5.0, 0.0, -5.0, 90.0))
-    await asyncio.sleep(10)
-
-    print("-- Go 5m North, 10m East, -5m Down \
-            within local coordinate system")
-    await drone.offboard.set_position_ned(
-        PositionNedYaw(5.0, 10.0, -5.0, 90.0))
-    await asyncio.sleep(15)
-
-    print("-- Go 0m North, 10m East, 0m Down \
-            within local coordinate system, turn to face South")
-    await drone.offboard.set_position_ned(
-        PositionNedYaw(0.0, 10.0, 0.0, 180.0))
-    await asyncio.sleep(10)
-
-    print("-- Stopping offboard")
+async def land(drone: System):
+    await move(drone, 0.0, 0.0, 0.0)
     try:
         await drone.offboard.stop()
     except OffboardError as error:
         print(f"Stopping offboard mode failed \
                 with error code: {error._result.result}")
+    await drone.action.land()
+
+
+async def move(drone: System, north_m: float, east_m: float, down_m: float, yaw_deg: float = 0.0):
+    await drone.offboard.set_position_ned(
+        PositionNedYaw(north_m, east_m, down_m, yaw_deg))
+    while True:
+        await asyncio.sleep(0.1)
+        position_ned = await drone.telemetry.position_velocity_ned().__aiter__().__anext__()
+        north_m_distance = position_ned.position.north_m - north_m
+        east_m_distance = position_ned.position.east_m - east_m
+        down_m_distance = position_ned.position.down_m - down_m
+        if (
+                MOVE_ACCURACY > north_m_distance > -MOVE_ACCURACY
+                and MOVE_ACCURACY > east_m_distance > -MOVE_ACCURACY
+                and MOVE_ACCURACY > down_m_distance > -MOVE_ACCURACY
+        ):
+            break
+
+
+async def move_loop(drone: System):
+    position_ned = await drone.telemetry.position_velocity_ned().__aiter__().__anext__()
+    position = position_ned.position
+    print(f">> Current position ({position.north_m}, {-position.east_m}, {-position.down_m})")
+    direction = input("Enter direction [forward, right, up, land]: ")
+    if direction == "land":
+        await land(drone)
+    else:
+        distance = float(input("Enter distance [in meters]: "))
+        target_north_m = position.north_m
+        target_east_m = position.east_m
+        target_down_m = position.down_m
+        if direction == "forward":
+            target_north_m += distance
+        elif direction == "right":
+            target_east_m += distance
+        elif direction == "up":
+            target_down_m -= distance
+        await move(drone, target_north_m, target_east_m, target_down_m)
+
+
+async def main():
+    drone = System()
+    await drone.connect(system_address="udp://:14540")
+    #await drone.connect(system_address="serial:///dev/ttyTHS1")
+    await setup_drone(drone)
+
+    async for position_ned in drone.telemetry.position_velocity_ned():
+        position = position_ned.position
+        break
+
+    # Use the initial position to set the home position for reference
+    await move(drone, position.north_m, position.east_m, 0.0)
+    print(f"Setting home position to ({position.north_m}, {position.east_m}, 0.0)")
+
+    while True:
+        try:
+            await move_loop(drone)
+        except Exception as e:
+            print(f">> Failed with {e}, landing")
+            await land(drone)
 
 
 if __name__ == "__main__":
-    # Run the asyncio loop
-    asyncio.run(run())
+    asyncio.run(main())
