@@ -16,6 +16,7 @@ async def setup_drone(drone: System):
 
     print("-- Arming")
     await drone.action.arm()
+    await drone.action.takeoff()
 
     print("-- Setting initial setpoint")
     await drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, 0.0))
