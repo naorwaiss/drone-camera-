@@ -28,7 +28,7 @@ async def run():
 
     print("Waiting for drone to have a global position estimate...")
     async for health in drone.telemetry.health():
-        if health.is_global_position_ok and health.is_home_position_ok:
+        if health.is_global_position_ok and health.i s_home_position_ok:
             print("-- Global position estimate OK")
             break
 
