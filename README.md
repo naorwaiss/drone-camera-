@@ -132,5 +132,7 @@ s
 #make jsim simulator 
 make px4_sitl_default jmavsim
 
-
+# to run at other console some debug feature 
+~/.local/lib/python3.10/site-packages/mavsdk/bin/mavsdk_server udp://:14540 (need to change the dev.....)
+/home/drone/.local/lib/python3.9/site-packages/mavsdk/bin/mavsdk_server serial:///dev/ttyTHS1
 
