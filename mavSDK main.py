@@ -2,9 +2,8 @@
 
 import asyncio
 from mavsdk import System
-import math
 import numpy as np
-from math import cos, sin, radians ,degrees
+from math import radians ,degrees
 
 # intianal value to save at the system as global
 
@@ -48,6 +47,11 @@ async def get_geo_pos(drone):
 
 
 async def geodetic_to_cartesian_ned(drone):
+
+    """
+    :param drone: connect string
+    :return: make geo position to cartazian one and rotate it to right hand axis ned coordinate
+    """
     latitude,longitude,altitude = await get_geo_pos(drone)
     # Constants for Earth (assuming it's a perfect sphere)
     radius_earth = 6371000.0  # in meters
@@ -80,6 +84,7 @@ async def geodetic_to_cartesian_ned(drone):
 
 
 async def cartesian_to_geodetic(x, y, z, drone):
+    # the revers function - from cartazian go to geo
     # Constants for Earth (assuming it's a perfect sphere)
     radius_earth = 6371000.0  # in meters
 
@@ -112,7 +117,7 @@ async def cartesian_to_geodetic(x, y, z, drone):
 
     return latitude, longitude, altitude
 
-async def takeoff_presedoure(drone):
+async def takeoff_presedoure(drone,target_altitude):
 
     """
     :param drone: the connect strings
@@ -121,7 +126,6 @@ async def takeoff_presedoure(drone):
 
     #  need to add change to stabilize mode
 
-    target_altitude = int(input("Enter the target altitude in meters: "))
     await drone.action.set_takeoff_altitude(target_altitude)
     await asyncio.sleep(1)
     print("-- Arming")
@@ -132,11 +136,33 @@ async def takeoff_presedoure(drone):
     return
 
 
-#async def spare_for_await():
+async def spare_for_await():
 
 
+#stop the movment of the drone - replace for asynco.sleep()
+    return
 
 
+async def get_absolute_yaw(drone):
+    async for attitude in drone.telemetry.attitude():
+        # 'heading' is the yaw angle in radians
+        yaw_radians = attitude.heading
+
+        # Convert radians to degrees
+        yaw_degrees = yaw_radians * (180.0 / 3.14159)
+
+        # Ensure the yaw_degrees is in the range [0, 360)
+        yaw_degrees %= 360
+
+async def x_axes(drone):
+
+
+    return
+
+
+async def y_axes(drone):
+
+    return
 
 
 
@@ -162,13 +188,19 @@ async def main():
         # at this section need add
         # 1) validation that the drone is at offbord mode
 
-
-    await takeoff_presedoure(drone)
-
+    target_altitude = int(input("Enter the target altitude in meters: "))
+    await takeoff_presedoure(drone,target_altitude)
 
     #at this point the go to loop is start
 
 
+
+    #test simple go to cand convert - need to delet it at move it the
+
+    lat, long, alt = await cartesian_to_geodetic(2, 0, target_altitude,drone)
+    print (lat,long,alt)
+    await drone.action.goto_location(lat, long, alt, 0)
+    await asyncio.sleep(15)
 
 
 if __name__ == "__main__":
