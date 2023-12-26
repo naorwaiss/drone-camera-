@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.10 (drone-camera-)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.9.12 (sftp://drone@172.18.111.213:22/home/drone/.virtualenvs/drone-camera-/bin/python)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10" project-jdk-type="Python SDK" />
 </project>

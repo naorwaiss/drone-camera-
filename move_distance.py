@@ -15,11 +15,14 @@ async def setup_drone(drone: System):
             break
 
     print("-- Arming")
+    await drone.action.set_takeoff_altitude(2.5)
     await drone.action.arm()
     await drone.action.takeoff()
+    print("take off to defult altitude of 2.5")
+    await asyncio.sleep(15)
 
     print("-- Setting initial setpoint")
-    await drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, 0.0))
+    await drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, -2.5, 0.0))
     print("-- Starting offboard")
     try:
         await drone.offboard.start()
@@ -81,8 +84,8 @@ async def move_loop(drone: System):
 
 async def main():
     drone = System()
-    # await drone.connect(system_address="udp://:14540")
-    await drone.connect(system_address="serial:///dev/ttyTHS1")
+    await drone.connect(system_address="udp://:14540")
+    #await drone.connect(system_address="serial:///dev/ttyTHS1")
     await setup_drone(drone)
 
     height = float(input(

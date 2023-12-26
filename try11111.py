@@ -1,118 +1,64 @@
 import asyncio
 from mavsdk import System
-import math
+import numpy as np
+from math import cos, sin, radians
 
-global x_initial, y_initial, z_initial, latitude_i, longitude_i, altitude_i
-x_initial = y_initial = z_initial = latitude_i = longitude_i = altitude_i = 0
-
-
-async def get_location(drone):
-    global latitude_i, longitude_i, altitude_i
-
-    default_coordinates = (0, 0, 0)
-
-    try:
-        async for position in drone.telemetry.position():
-            latitude_i = position.latitude_deg
-            longitude_i = position.longitude_deg
-            altitude_i = position.absolute_altitude_m
-            break
-    except Exception as e:
-        print(f"Error getting location: {e}")
-        print("Using default coordinates.")
-        return default_coordinates
-
-    return latitude_i, longitude_i, altitude_i
-
-
-async def convert_geodetic_to_cartesian(latitude, longitude, altitude):
-    # Constants
-    radius_earth = 6371.0
+def geodetic_to_cartesian_ned(longitude, latitude, altitude, ref_longitude, ref_latitude, ref_altitude):
+    # Constants for Earth (assuming it's a perfect sphere)
+    radius_earth = 6371000.0  # in meters
 
     # Convert latitude and longitude from degrees to radians
-    latitude_rad = math.radians(latitude)
-    longitude_rad = math.radians(longitude)
+    lat_rad = radians(latitude)
+    lon_rad = radians(longitude)
 
-    # Calculate Cartesian coordinates
-    x = (radius_earth + altitude) * math.cos(latitude_rad) * math.cos(longitude_rad)
-    y = (radius_earth + altitude) * math.cos(latitude_rad) * math.sin(longitude_rad)
-    z = (radius_earth + altitude) * math.sin(latitude_rad)
+    # Convert reference latitude and longitude from degrees to radians
+    ref_lat_rad = radians(ref_latitude)
+    ref_lon_rad = radians(ref_longitude)
 
-    return x, y, z
+    # Calculate the difference in coordinates
+    delta_lat = lat_rad - ref_lat_rad
+    delta_lon = lon_rad - ref_lon_rad
+    delta_altitude = altitude - ref_altitude
 
+    # Convert geodetic coordinates to Cartesian coordinates (NED convention)
+    ned_x = -radius_earth * delta_lat  # Negate x-coordinate to have positive forward
+    ned_y = radius_earth * delta_lon
+    ned_z = delta_altitude  # Negate altitude to align with NED convention
 
-async def position_new_cartzian(drone):
-    global x_initial, y_initial, z_initial, latitude_i, longitude_i, altitude_i
+    # Rotate coordinates to right-handed system
+    rotation_matrix = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
+    ned_coordinates = np.dot(rotation_matrix, np.array([ned_x, ned_y, ned_z]))
 
-    latitude, longitude, altitude = 0, 0, 0
-    try:
-        latitude, longitude, altitude = await get_location(drone)
-        x_n, y_n, z_n = await convert_geodetic_to_cartesian(latitude, longitude, altitude)
-
-        x_rel = (x_n - x_initial)
-        y_rel = (y_n - y_initial)
-        z_rel = (z_n - z_initial)
-
-        return x_rel, y_rel, z_rel
-    except Exception as e:
-        print(f"Error getting new position: {e}")
-    return 0, 0, 0
+    return ned_coordinates
 
 
-async def print_status_text(drone):
-    try:
-        async for status_text in drone.telemetry.status_text():
-            print(f"Status: {status_text.type}: {status_text.text}")
-    except asyncio.CancelledError:
-        return
+async def position_task(drone):
+    # Set initial reference point
+    ref_longitude, ref_latitude, ref_altitude = 0, 0, 0
 
+    async for position in drone.telemetry.position():
+        if ref_longitude == 0 and ref_latitude == 0 and ref_altitude == 0:
+            ref_longitude = position.longitude_deg
+            ref_latitude = position.latitude_deg
+            ref_altitude = position.relative_altitude_m
+            break  # Only need the first position
 
-async def run():
-    global x_initial, y_initial, z_initial, latitude_i, longitude_i, altitude_i
+    async for position in drone.telemetry.position():
+        longitude = position.longitude_deg
+        latitude = position.latitude_deg
+        altitude = position.relative_altitude_m
 
+        ned_coordinates = geodetic_to_cartesian_ned(
+            longitude, latitude, altitude, ref_longitude, ref_latitude, ref_altitude)
+
+        print("Latitude: {:.6f}, Longitude: {:.6f}, Altitude: {:.2f}".format(latitude, longitude, altitude))
+        print("NED Coordinates:", ned_coordinates)
+
+async def main():
     drone = System()
     await drone.connect(system_address="udp://:14540")
 
-    status_text_task = asyncio.ensure_future(print_status_text(drone))
-
-    try:
-        print("Waiting for drone to connect...")
-        async for state in drone.core.connection_state():
-            if state.is_connected:
-                print(f"-- Connected to drone!")
-                break
-
-        print("Waiting for drone to have a global position estimate...")
-        async for health in drone.telemetry.health():
-            if health.is_global_position_ok and health.is_home_position_ok:
-                print("-- Global position estimate OK")
-                break
-
-        latitude_i, longitude_i, altitude_i = await get_location(drone)
-        print(f"At GPS position: Latitude={latitude_i}, Longitude={longitude_i}, Altitude={altitude_i} meters")
-        x_initial, y_initial, z_initial = await convert_geodetic_to_cartesian(latitude_i, longitude_i, altitude_i)
-        print(f"At Cartesian position: x={x_initial}, y={y_initial}, z={z_initial}")
-        print(await position_new_cartzian(drone))
-
-        print("-- Arming")
-        await drone.action.arm()
-
-        print("-- Taking off")
-        target_altitude = int(input("Enter the target altitude in meters: "))
-        await drone.action.set_takeoff_altitude(target_altitude)
-        await drone.action.takeoff()
-
-        await asyncio.sleep(15)
-        print(await get_location(drone))
-        print(await position_new_cartzian(drone))
-        print("-- Landing")
-        await drone.action.land()
-
-    finally:
-        # Properly cancel and await completion of status_text_task
-        status_text_task.cancel()
-        await asyncio.gather(status_text_task, return_exceptions=True)
-
+    await asyncio.gather(position_task(drone))
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    asyncio.run(main())
