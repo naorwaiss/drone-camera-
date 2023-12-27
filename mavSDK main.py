@@ -1,9 +1,10 @@
 #at this function i do fusion and use converrt from geo and to geo
 
 import asyncio
+import mavsdk
 from mavsdk import System
 import numpy as np
-from math import radians ,degrees
+from math import radians ,degrees , sqrt
 
 # intianal value to save at the system as global
 
@@ -115,6 +116,7 @@ async def cartesian_to_geodetic(x, y, z, drone):
     latitude = degrees(lat_rad)
     longitude = degrees(lon_rad)
 
+
     return latitude, longitude, altitude
 
 async def takeoff_presedoure(drone,target_altitude):
@@ -136,28 +138,28 @@ async def takeoff_presedoure(drone,target_altitude):
     return
 
 
-async def spare_for_await():
+
+async def absolute_yaw(drone):
+    async for attitude_info in drone.telemetry.attitude_euler():
+        absolute_yaw = attitude_info.yaw_deg
+        return absolute_yaw
 
 
-#stop the movment of the drone - replace for asynco.sleep()
+
+
+
+async def x_axes(x_dist, drone):
+    # get local position
+    x_local, y_local, z_local = await geodetic_to_cartesian_ned(drone)
+    lat_dist, long_dist, alt_dist = await cartesian_to_geodetic(x_dist, y_local, z_local, drone)
+
+    # Remove the yaw check
+    yaw = await absolute_yaw(drone)
+    await drone.action.goto_location(lat_dist, long_dist, alt_dist, yaw)
+    print(await geodetic_to_cartesian_ned(drone))
+
     return
 
-
-async def get_absolute_yaw(drone):
-    async for attitude in drone.telemetry.attitude():
-        # 'heading' is the yaw angle in radians
-        yaw_radians = attitude.heading
-
-        # Convert radians to degrees
-        yaw_degrees = yaw_radians * (180.0 / 3.14159)
-
-        # Ensure the yaw_degrees is in the range [0, 360)
-        yaw_degrees %= 360
-
-async def x_axes(drone):
-
-
-    return
 
 
 async def y_axes(drone):
@@ -193,14 +195,14 @@ async def main():
 
     #at this point the go to loop is start
 
+    await x_axes(15,drone)
 
 
-    #test simple go to cand convert - need to delet it at move it the
 
-    lat, long, alt = await cartesian_to_geodetic(2, 0, target_altitude,drone)
-    print (lat,long,alt)
-    await drone.action.goto_location(lat, long, alt, 0)
-    await asyncio.sleep(15)
+
+    await drone.action.land()
+
+
 
 
 if __name__ == "__main__":
